@@ -3,7 +3,6 @@ param($TargetDriveLetter, $PercentageFreeThreshold, $MegabytesFreeThreshold)
 $ScomAPI = New-Object -comObject "MOM.ScriptAPI"
 $PropertyBag = $ScomAPI.CreatePropertyBag()
 
-cls
 #TestData
 #$TargetDriveLetter = "C:"
 #$PercentageFreeThreshold = 17
@@ -18,13 +17,12 @@ $Drive = Get-PSDrive $DriveLetter
 $DriveFreeBytes = $Drive | Select-Object -ExpandProperty Free
 $DriveUsedBytes = $Drive | Select-Object -ExpandProperty Used
 
-#We can use wmi as well but logic would be different
-#$DriveInfo = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='$($TargetDrive):'" | Select-Object FreeSpace, Size
+#We could use wmi as well
+#$Drive = Get-WmiObject Win32_LogicalDisk -Filter "DeviceID='$($TargetDrive):'" | Select-Object FreeSpace, Size
 
 #Calculate Additional Data
 $DriveTotalBytes = $DriveUsedBytes + $DriveFreeBytes
 $DriveFreePercent = $DriveFreeBytes / $DriveTotalBytes * 100
-
 
 # Check if Threshold was met
 if ($DriveFreePercent -lt $PercentageFreeThreshold -and $DriveFreeBytes -lt $BytesFreeThreshold)
