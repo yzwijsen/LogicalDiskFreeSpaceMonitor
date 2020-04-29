@@ -3,11 +3,6 @@ param($TargetDriveLetter, $PercentageFreeThreshold, $MegabytesFreeThreshold)
 $ScomAPI = New-Object -comObject "MOM.ScriptAPI"
 $PropertyBag = $ScomAPI.CreatePropertyBag()
 
-#TestData
-#$TargetDriveLetter = "C:"
-#$PercentageFreeThreshold = 17
-#$MegabytesFreeThreshold = 25000
-
 #remove colon from drive leter parameter
 $DriveLetter = $TargetDriveLetter.Replace(":","")
 $BytesFreeThreshold = $MegabytesFreeThreshold * 1024 * 1024
