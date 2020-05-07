@@ -1,10 +1,38 @@
-param($TargetDriveLetter, $PercentageFreeThreshold, $MegabytesFreeThreshold)
+<#
+	SCOM Logical Disk Free Space Monitor.
+	Written By Yannick Zwijsen
+	
+	ThresholdConfig:
+	This parameter takes
+	0 - Both % and Mb thresholds need to be passed
+	1 - Either % or Mb thresholds need to be passed
+	2 - Only % threshold needs to be passed
+	3 - Only Mb threshold needs to be passed
+#>
+
+param(
+	[Parameter()]
+	[string]$TargetDrive,
+	[Parameter()]
+	[int]$PercentageFreeThreshold,
+	[Parameter()]
+	[int]$MegabytesFreeThreshold,
+	[Parameter()]
+	[int]$ThresholdConfig = 0
+)
+
+function Log-Info($message)
+{
+	Write-EventLog -LogName "Operations Manager" -Source "Health Service Script" -EventID 3000 -EntryType Information -Message $message
+}
+
+Log-Info "LogicalDiskFreeSpaceMonitor.ps1 Started || $TargetDriveLetter $PercentageFreeThreshold $MegabytesFreeThreshold"
 
 $ScomAPI = New-Object -comObject "MOM.ScriptAPI"
 $PropertyBag = $ScomAPI.CreatePropertyBag()
 
 #remove colon from drive leter parameter
-$DriveLetter = $TargetDriveLetter.Replace(":","")
+$DriveLetter = $TargetDrive.Replace(":","")
 $BytesFreeThreshold = $MegabytesFreeThreshold * 1024 * 1024
 
 #Gather Drive Data
@@ -16,23 +44,35 @@ $DriveUsedBytes = $Drive | Select-Object -ExpandProperty Used
 $DriveTotalBytes = $DriveUsedBytes + $DriveFreeBytes
 $DriveFreePercent = $DriveFreeBytes / $DriveTotalBytes * 100
 
-# Check if Threshold was met
-if ($DriveFreePercent -lt $PercentageFreeThreshold -and $DriveFreeBytes -lt $BytesFreeThreshold)
+$DriveThresholdPassed = switch ($ThresholdConfig)
 {
-	$PropertyBag.AddValue("State","Unhealthy") 
+	0 {$DriveFreePercent -lt $PercentageFreeThreshold -and $DriveFreeBytes -lt $BytesFreeThreshold}
+	1 {$DriveFreePercent -lt $PercentageFreeThreshold -or $DriveFreeBytes -lt $BytesFreeThreshold}
+	2 {$DriveFreePercent -lt $PercentageFreeThreshold}
+	3 {$DriveFreeBytes -lt $BytesFreeThreshold}
+}
+
+# Check if Threshold was met
+if ($DriveThresholdPassed)
+{
+	$State = "Unhealthy"
 }
 else
 {
-	$PropertyBag.AddValue("State","Healthy") 
+	$State = "Healthy"
 }
 
-#Calculate Mb values so we can use that data in the SCOM Alert
-$DriveFreeMegaBytes = $DriveFreeBytes * 1024 * 1024
-$DriveUsedMegaBytes = $DriveUsedBytes * 1024 * 1024
-$DriveTotalMegaBytes = $DriveTotalBytes * 1024 * 1024
+#Calculate Mb values and round results for display in the SCOM alert description
+$DriveFreeMegaBytes = [Math]::Round(($DriveFreeBytes / 1024 / 1024),2)
+$DriveUsedMegaBytes = [Math]::Round(($DriveUsedBytes / 1024 / 1024),2)
+$DriveTotalMegaBytes = [Math]::Round(($DriveTotalBytes / 1024 / 1024),2)
+$DriveFreePercent = [Math]::Round($DriveFreePercent,2)
+
+Log-Info "LogicalDiskFreeSpaceMonitor.ps1 Completed `n Drive: $TargetDriveLetter `n State: $State `n Free Mb: $DriveFreeMegaBytes `n Free Percent: $DriveFreePercent"
 
 #Expose Data to SCOM Alert
-$PropertyBag.AddValue("DriveLetter",$TargetDriveLetter)
+$PropertyBag.AddValue("State",$State)
+$PropertyBag.AddValue("DriveLetter",$TargetDrive)
 $PropertyBag.AddValue("FreeMb",$DriveFreeMegaBytes)
 $PropertyBag.AddValue("UsedMb",$DriveUsedMegaBytes)
 $PropertyBag.AddValue("TotalMb",$DriveTotalMegaBytes)
