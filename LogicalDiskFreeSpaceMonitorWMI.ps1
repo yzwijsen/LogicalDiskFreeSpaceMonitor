@@ -41,7 +41,7 @@ $BytesFreeThreshold = $MegabytesFreeThreshold * 1024 * 1024
 #Gather Drive Data
 $Drive = Get-DiskInfo $TargetDrive
 
-#Retry if data is invalid
+#Retry if data is suspicious or invalid
 if ($Drive.FreeSpace -eq 0 -or $Drive.Size -eq 0)
 {
 	Start-Sleep	10
